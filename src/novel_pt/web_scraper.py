@@ -8,6 +8,8 @@ import time
 import random
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.service import Service
 
 class WebScraper:
     def __init__(self):
@@ -17,12 +19,11 @@ class WebScraper:
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
 
-        # Configura o driver para usar uma versão específica do ChromeDriver
+        # Configura o driver usando webdriver_manager
+        service = Service(ChromeDriverManager().install())
         self.driver = uc.Chrome(
             options=options,
-            version_main=126,  # Especifica a versão do Chrome
-            driver_executable_path=None,  # Permite que o undetected-chromedriver baixe a versão correta
-            browser_executable_path=None,  # Usa o Chrome instalado no sistema
+            service=service,
             suppress_welcome=True
         )
         self.wait = WebDriverWait(self.driver, 10)  # Timeout de 10 segundos
