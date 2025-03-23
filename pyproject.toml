@@ -8,9 +8,10 @@ packages = [{include = "src"}]
 
 [tool.poetry.scripts]
 start = "src.novel_pt.main:init"
+build = "poetry run pyinstaller --clean novel_pt.spec"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = ">=3.9,<3.14"
 PyQt6 = "^6.6.1"
 requests = "^2.31.0"
 beautifulsoup4 = "^4.12.2"
@@ -22,6 +23,11 @@ selenium = "^4.18.1"
 undetected-chromedriver = "^3.5.5"
 webdriver-manager = "^4.0.1"
 sentencepiece = "^0.1.99"
+openai = "^1.12.0"
+python-dotenv = "^1.0.1"
+
+[tool.poetry.group.dev.dependencies]
+pyinstaller = "^6.12.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
