@@ -211,42 +211,34 @@ class ChapterManager:
         except Exception as e:
             self.log(f"⚠️ Erro ao limpar arquivos temporários: {str(e)}")
 
-    def process_chapters(self, start_chapter: int, batch_size: int) -> Optional[str]:
-        """Processa os capítulos em etapas: download, tradução e combinação."""
-        output_file = None
+    def process_chapters(self, start_chapter: int, batch_size: int) -> str:
+        """Processa os capítulos da novel."""
         try:
-            # 1. Baixa os capítulos
-            chapters = self.download_chapters(start_chapter, batch_size)
+            # Calcula o número total de capítulos a serem traduzidos
+            current_chapter = self.novel_data.get('current_chapter', 1)
+            end_chapter = self.novel_data.get('end_chapter', current_chapter)
+            total_chapters = end_chapter - current_chapter + 1
+
+            # Baixa os capítulos
+            chapters = self.download_chapters(current_chapter, batch_size)
             if not chapters:
-                self.log("❌ Nenhum capítulo foi baixado.")
                 return None
 
-            # 2. Traduz os capítulos
+            # Traduz os capítulos
             translated_chapters = self.translate_chapters(chapters)
-            if not translated_chapters:
-                self.log("❌ Nenhum capítulo foi traduzido.")
-                return None
 
-            # 3. Combina os capítulos em um único arquivo
+            # Gera o arquivo final
             output_file = self.merge_chapters(translated_chapters, self.novel_data['output_dir'])
-            if not output_file:
-                self.log("❌ Não foi possível criar o arquivo final.")
-                return None
 
-            # 4. Limpa os arquivos temporários
-            self.cleanup()
+            # Atualiza o capítulo atual
+            self.novel_data['current_chapter'] = current_chapter + batch_size
+            self.config.update_novel(self.novel_data['name'], self.novel_data)
 
             return output_file
 
         except Exception as e:
-            self.log(f"❌ Erro durante o processamento dos capítulos: {str(e)}")
-            return output_file  # Retorna o arquivo mesmo em caso de erro
-        finally:
-            # Garante que a limpeza seja feita mesmo em caso de erro
-            try:
-                self.cleanup()
-            except Exception as e:
-                self.log(f"⚠️ Erro ao limpar arquivos temporários: {str(e)}")
+            self.log(f"❌ Erro ao processar capítulos: {str(e)}")
+            return None
 
     def __del__(self):
         """Destrutor para garantir a limpeza dos recursos."""

@@ -254,12 +254,17 @@ class MainWindow(QMainWindow):
             output_dir = Path('output')
             output_dir.mkdir(exist_ok=True)
 
+            # Calcula o número total de capítulos a serem traduzidos
+            current_chapter = novel_data.get('current_chapter', 1)
+            end_chapter = novel_data.get('end_chapter', current_chapter)
+            total_chapters = end_chapter - current_chapter + 1
+
             # Configura o progresso
             self.progress_dialog = QProgressDialog(
                 "Baixando e traduzindo capítulos...",
                 "Cancelar",
                 0,
-                novel_data['end_chapter'] - novel_data['start_chapter'] + 1,
+                total_chapters,
                 self
             )
             self.progress_dialog.setWindowTitle("Progresso da Tradução")
