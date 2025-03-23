@@ -22,6 +22,9 @@ class Translator:
     def translate_text(self, text: str) -> str:
         """Traduz um texto do inglês para português."""
         try:
+            if not text or not text.strip():
+                return text
+
             # Divide o texto em linhas para preservar quebras de linha
             lines = text.split('\n')
             translated_lines = []
@@ -31,52 +34,63 @@ class Translator:
                     translated_lines.append('')
                     continue
 
-                # Divide a linha em sentenças
-                sentences = nltk.tokenize.sent_tokenize(line, language='english')
-                sentences = [sentence.strip() for sentence in sentences if sentence.strip()]
+                try:
+                    # Divide a linha em sentenças
+                    sentences = nltk.tokenize.sent_tokenize(line, language='english')
+                    sentences = [sentence.strip() for sentence in sentences if sentence.strip()]
 
-                # Inicializa variáveis para batching
-                translated_sentences = []
-                current_batch = []
-                current_batch_chars = 0
-                max_chars_per_request = 400
+                    # Inicializa variáveis para batching
+                    translated_sentences = []
+                    current_batch = []
+                    current_batch_chars = 0
+                    max_chars_per_request = 400
 
-                # Agrupa sentenças em lotes
-                batches = []
-                for sentence in sentences:
-                    sentence_length = len(sentence)
-                    if current_batch_chars + sentence_length + 1 <= max_chars_per_request:
-                        current_batch.append(sentence)
-                        current_batch_chars += sentence_length + 1
-                    else:
+                    # Agrupa sentenças em lotes
+                    batches = []
+                    for sentence in sentences:
+                        sentence_length = len(sentence)
+                        if current_batch_chars + sentence_length + 1 <= max_chars_per_request:
+                            current_batch.append(sentence)
+                            current_batch_chars += sentence_length + 1
+                        else:
+                            batches.append(current_batch)
+                            current_batch = [sentence]
+                            current_batch_chars = sentence_length + 1
+                    if current_batch:
                         batches.append(current_batch)
-                        current_batch = [sentence]
-                        current_batch_chars = sentence_length + 1
-                if current_batch:
-                    batches.append(current_batch)
 
-                # Traduz cada lote
-                for batch in batches:
-                    # Verifica se alguma sentença excede o comprimento máximo
-                    tokens = self.tokenizer.tokenize(' '.join(batch))
-                    if len(tokens) > self.max_length:
-                        # Divide em segmentos menores
-                        segments = self.split_long_sentence(' '.join(batch))
-                        for segment in segments:
-                            encoded = self.tokenizer(segment, return_tensors="pt", padding=True, truncation=True, max_length=self.max_length).to(self.device)
-                            translated_tokens = self.model.generate(**encoded)
-                            translated_segment = self.tokenizer.decode(translated_tokens[0], skip_special_tokens=True, clean_up_tokenization_spaces=True)
-                            translated_sentences.append(translated_segment)
-                    else:
-                        # Traduz o lote inteiro
-                        encoded = self.tokenizer(' '.join(batch), return_tensors="pt", padding=True, truncation=True, max_length=self.max_length).to(self.device)
-                        translated_tokens = self.model.generate(**encoded)
-                        translated = self.tokenizer.decode(translated_tokens[0], skip_special_tokens=True, clean_up_tokenization_spaces=True)
-                        translated_sentences.append(translated)
+                    # Traduz cada lote
+                    for batch in batches:
+                        try:
+                            # Verifica se alguma sentença excede o comprimento máximo
+                            tokens = self.tokenizer.tokenize(' '.join(batch))
+                            if len(tokens) > self.max_length:
+                                # Divide em segmentos menores
+                                segments = self.split_long_sentence(' '.join(batch))
+                                for segment in segments:
+                                    encoded = self.tokenizer(segment, return_tensors="pt", padding=True, truncation=True, max_length=self.max_length).to(self.device)
+                                    translated_tokens = self.model.generate(**encoded)
+                                    translated_segment = self.tokenizer.decode(translated_tokens[0], skip_special_tokens=True, clean_up_tokenization_spaces=True)
+                                    translated_sentences.append(translated_segment)
+                            else:
+                                # Traduz o lote inteiro
+                                encoded = self.tokenizer(' '.join(batch), return_tensors="pt", padding=True, truncation=True, max_length=self.max_length).to(self.device)
+                                translated_tokens = self.model.generate(**encoded)
+                                translated = self.tokenizer.decode(translated_tokens[0], skip_special_tokens=True, clean_up_tokenization_spaces=True)
+                                translated_sentences.append(translated)
+                        except Exception as e:
+                            print(f"Erro ao traduzir lote: {str(e)}")
+                            # Em caso de erro, mantém o texto original
+                            translated_sentences.append(' '.join(batch))
 
-                # Reconstrói a linha com as sentenças traduzidas
-                translated_line = ' '.join(translated_sentences)
-                translated_lines.append(translated_line)
+                    # Reconstrói a linha com as sentenças traduzidas
+                    translated_line = ' '.join(translated_sentences)
+                    translated_lines.append(translated_line)
+
+                except Exception as e:
+                    print(f"Erro ao processar linha: {str(e)}")
+                    # Em caso de erro, mantém a linha original
+                    translated_lines.append(line)
 
             # Reconstrói o texto com as quebras de linha originais
             return '\n'.join(translated_lines)

@@ -41,6 +41,11 @@ class NovelForm(QDialog):
         self.url_input.setText(self.novel_data.get('url', ''))
         form_layout.addRow("URL:", self.url_input)
 
+        # URL atual
+        self.current_url = QLineEdit()
+        self.current_url.setText(self.novel_data.get('current_url', ''))
+        form_layout.addRow("URL Atual:", self.current_url)
+
         # XPath do conteúdo
         self.content_xpath = QLineEdit()
         self.content_xpath.setText(self.novel_data.get('content_xpath', ''))
@@ -55,7 +60,7 @@ class NovelForm(QDialog):
 
         # Formato de saída
         self.format_combo = QComboBox()
-        self.format_combo.addItems(["DOCX", "TXT", "PDF"])
+        self.format_combo.addItems(["DOCX", "TXT"])
         self.format_combo.setCurrentText(self.novel_data.get('format', 'DOCX'))
         form_layout.addRow("Formato de Saída:", self.format_combo)
 
@@ -121,8 +126,10 @@ class NovelForm(QDialog):
     def get_novel_data(self) -> Dict:
         """Retorna os dados do formulário em formato de dicionário."""
         return {
+            'id': self.novel_data.get('id'),
             'name': self.name_input.text().strip(),
             'url': self.url_input.text().strip(),
+            'current_url': self.current_url.text().strip(),
             'content_xpath': self.content_xpath.text().strip(),
             'next_chapter_xpath': self.next_chapter_xpath.text().strip(),
             'format': self.format_combo.currentText(),

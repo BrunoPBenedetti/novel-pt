@@ -1,4 +1,4 @@
-import undetected_chromedriver as uc
+from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -10,21 +10,27 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 
 class WebScraper:
     def __init__(self):
-        """Inicializa o WebScraper com o driver do Chrome não detectável."""
-        options = uc.ChromeOptions()
+        """Inicializa o WebScraper com o driver do Chrome."""
+        options = Options()
         options.add_argument('--headless')  # Executa em modo headless
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--disable-gpu')
+        options.add_argument('--disable-extensions')
+        options.add_argument('--disable-infobars')
+        options.add_argument('--disable-notifications')
+        options.add_argument('--disable-popup-blocking')
+        options.add_argument('--start-maximized')
 
         # Configura o driver usando webdriver_manager
         service = Service(ChromeDriverManager().install())
-        self.driver = uc.Chrome(
+        self.driver = webdriver.Chrome(
             options=options,
-            service=service,
-            suppress_welcome=True
+            service=service
         )
         self.wait = WebDriverWait(self.driver, 10)  # Timeout de 10 segundos
 
@@ -72,7 +78,7 @@ class WebScraper:
             print(f"Erro ao extrair texto: {str(e)}")
             return None
 
-    def find_next_chapter_url(self, html: str, next_chapter_xpath: str) -> Optional[str]:
+    def find_next_chapter_url(self, next_chapter_xpath: str) -> Optional[str]:
         """Encontra a URL do próximo capítulo usando XPath e interagindo com o botão."""
         try:
             # Encontra o botão usando XPath
@@ -82,6 +88,10 @@ class WebScraper:
 
             # Obtém a URL atual antes de clicar
             current_url = self.driver.current_url
+
+            # Faz scroll até o botão
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", next_button)
+            time.sleep(1)  # Pequeno delay para garantir que o botão esteja visível
 
             # Clica no botão
             next_button.click()
@@ -125,7 +135,7 @@ class WebScraper:
                 return {'success': False, 'error': 'Não foi possível extrair o conteúdo do capítulo'}
 
             # Encontra o botão do próximo capítulo e obtém sua URL de redirecionamento
-            next_chapter_url = self.find_next_chapter_url(html, next_chapter_xpath)
+            next_chapter_url = self.find_next_chapter_url( next_chapter_xpath)
             if not next_chapter_url:
                 return {
                     'success': True,

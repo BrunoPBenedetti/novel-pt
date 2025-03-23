@@ -25,13 +25,14 @@ from pathlib import Path
 class TranslationWorker(QThread):
     """Worker para executar a tradução em uma thread separada."""
     progress = pyqtSignal(int, str)  # Sinal para atualizar o progresso
-    finished = pyqtSignal()  # Sinal para indicar que terminou
+    finished = pyqtSignal(str)  # Sinal para indicar que terminou, com o caminho do arquivo
     error = pyqtSignal(str)  # Sinal para indicar erro
 
-    def __init__(self, novel_data: dict):
+    def __init__(self, novel_data: dict, config: 'Config'):
         super().__init__()
         self.novel_data = novel_data
-        self.chapter_manager = ChapterManager(novel_data, self.progress.emit)
+        self.config = config
+        self.chapter_manager = ChapterManager(novel_data, self.progress.emit, config)
 
     def run(self):
         try:
@@ -43,7 +44,7 @@ class TranslationWorker(QThread):
 
             if output_file:
                 self.progress.emit(100, f"✅ Tradução concluída! Arquivo salvo em: {output_file}")
-                self.finished.emit()
+                self.finished.emit(output_file)  # Emite o output_file junto com o sinal finished
             else:
                 self.error.emit("❌ Não foi possível processar os capítulos.")
 
@@ -135,7 +136,7 @@ class NovelCard(QFrame):
 
         delete_btn = QPushButton("Excluir")
         delete_btn.setObjectName("deleteButton")
-        delete_btn.clicked.connect(lambda: self.main_window.remove_novel(self.novel_data))
+        delete_btn.clicked.connect(lambda: self.main_window.delete_novel(self.novel_data['id']))
         delete_btn.setFixedSize(50, 25)
         button_layout.addWidget(delete_btn)
 
@@ -164,7 +165,7 @@ class MainWindow(QMainWindow):
         # Título
         title = QLabel("Novel-PT - Tradutor de Novels")
         title.setFont(QFont('Arial', 24, QFont.Weight.Bold))
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         layout.addWidget(title)
 
         # Grid de cards
@@ -214,27 +215,50 @@ class MainWindow(QMainWindow):
         if form.exec() == NovelForm.DialogCode.Accepted:
             novel_data = form.get_novel_data()
             if novel_data['name'] and novel_data['url']:
-                self.config.update_novel(novel_data['name'], novel_data)
+                self.config.update_novel(novel_data['id'], novel_data)
                 self.load_saved_novels()
             else:
                 QMessageBox.warning(self, "Erro", "Nome e URL são obrigatórios.")
 
-    def remove_novel(self, novel_data):
+    def delete_novel(self, novel_id: str):
         """Remove uma novel."""
-        reply = QMessageBox.question(
-            self,
-            'Confirmar Exclusão',
-            f'Tem certeza que deseja excluir a novel "{novel_data["name"]}"?',
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
-        )
+        try:
+            # Obtém o nome da novel para a mensagem de confirmação
+            novel = self.config.get_novel(novel_id)
+            if not novel:
+                return
 
-        if reply == QMessageBox.StandardButton.Yes:
-            try:
-                self.config.remove_novel(novel_data['name'])
-                self.load_saved_novels()
-            except Exception as e:
-                QMessageBox.critical(self, 'Erro', f'Erro ao excluir novel: {str(e)}')
+            # Confirma a exclusão
+            reply = QMessageBox.question(
+                self,
+                "Confirmar Exclusão",
+                f"Tem certeza que deseja excluir a novel '{novel['name']}'?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+
+            if reply == QMessageBox.StandardButton.Yes:
+                # Remove a novel do config
+                if self.config.remove_novel(novel_id):
+                    # Atualiza a interface
+                    self.load_saved_novels()
+                    QMessageBox.information(
+                        self,
+                        "Sucesso",
+                        f"Novel '{novel['name']}' removida com sucesso!"
+                    )
+                else:
+                    QMessageBox.warning(
+                        self,
+                        "Erro",
+                        f"Não foi possível remover a novel '{novel['name']}'."
+                    )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Erro",
+                f"Erro ao remover novel: {str(e)}"
+            )
 
     def show_novel_form(self):
         """Mostra o formulário para adicionar uma nova novel."""
@@ -275,7 +299,7 @@ class MainWindow(QMainWindow):
             self.progress_dialog.show()
 
             # Cria e inicia a thread de tradução
-            self.translation_thread = TranslationWorker(novel_data)
+            self.translation_thread = TranslationWorker(novel_data, self.config)
             self.translation_thread.progress.connect(self.update_progress)
             self.translation_thread.finished.connect(self.translation_finished)
             self.translation_thread.error.connect(self.translation_error)
